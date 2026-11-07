@@ -95,6 +95,34 @@ circuit2:                   # C2_T14, C2_T16, C2_T15 (WE2/WA2)
 (If you renamed channels in the config flow, use the entity ids of your
 custom names instead.)
 
+## power-flow-card-plus example
+
+The card visualizes power flows. With the D-LOGG channels the natural mapping
+is **SOL (irradiation) → storage tank → heat generator / heating circuits**.
+Entity ids assume the default channel names:
+
+```yaml
+type: custom:power-flow-card-plus
+title: Solar thermal system
+wide: true
+entities:
+  - entity: sensor.sol_solar_irradiation      # C1_T13
+    display_name: SOL collector
+    children:
+      - entity: sensor.sol_solar_tank_temperature  # C1_T12
+        display_name: Solar storage
+        children:
+          - entity: sensor.we1_operating_temperature  # C1_T7
+            display_name: Heat generator WE1
+          - entity: sensor.wa1_flow_temperature       # C1_T10
+            display_name: Heating circuit WA1
+          - entity: sensor.we2_operating_temperature  # C2_T14
+            display_name: Heat generator WE2 / WA2
+```
+
+For real kW flow widths add template sensors (e.g. solar power ≈
+irradiation × collector area × efficiency) and reference those instead.
+
 ## Tests
 
 Unit tests for the protocol parser live in `tests/`. They run with the
