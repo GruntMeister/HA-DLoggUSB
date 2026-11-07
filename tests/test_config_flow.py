@@ -202,6 +202,15 @@ class TestChannelsStep(unittest.TestCase):
         fields = _schema_fields(result["data_schema"])
         self.assertEqual(len([f for f in fields if f.startswith("type_")]), len(CHANNEL_KINDS))
 
+    def test_channels_step_shows_warning_on_error(self):
+        # Broken internal state must surface as a form warning, not a crash
+        flow = self._make_flow()
+        flow._channel_kinds = None
+        result = asyncio.run(flow.async_step_channels(None))
+        self.assertEqual(result["type"], "form")
+        self.assertEqual(result["errors"], {"base": "unknown"})
+        self.assertIn("error", result["description_placeholders"])
+
     def test_channels_step_submit_creates_entry(self):
         flow = self._make_flow()
         user_input = {
@@ -247,6 +256,17 @@ class TestOptionsFlow(unittest.TestCase):
         fields = _schema_fields(result["data_schema"])
         self.assertEqual(fields["name_C1_S1"], "Collector")
         self.assertEqual(fields["type_C1_S1"], TYPE_TEMPERATURE)
+
+    def test_options_init_shows_warning_on_error(self):
+        # Regression: the options dialog crashed with NameError before; now the
+        # exception must appear as a warning inside the dialog.
+        flow = cf.DLoggOptionsFlow()
+        flow.config_entry = SimpleNamespace(data={"channels": None}, options={})
+        result = asyncio.run(flow.async_step_init(None))
+        self.assertEqual(result["type"], "form")
+        self.assertEqual(result["step_id"], "init")
+        self.assertEqual(result["errors"], {"base": "unknown"})
+        self.assertTrue(result["description_placeholders"]["error"])
 
     def test_options_submit_updates_channels(self):
         flow = cf.DLoggOptionsFlow()
