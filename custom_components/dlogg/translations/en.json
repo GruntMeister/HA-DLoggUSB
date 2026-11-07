@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the D-LOGG",
+        "description": "Enter the serial port of the D-LOGG USB adapter (e.g. /dev/ttyUSB0 or COM4).",
+        "data": {
+          "port": "Serial port",
+          "baudrate": "Baud rate",
+          "scan_interval": "Polling interval (seconds)"
+        }
+      },
+      "channels": {
+        "title": "Configure channels",
+        "description": "Give every detected channel a name and choose its value type: Temperature, Power or Switch."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the D-LOGG. Check the port and that the device is plugged in.",
+      "no_channels": "No usable channels were detected on the D-LOGG."
+    },
+    "selector": {
+      "channel_type": {
+        "options": {
+          "temperature": "Temperature",
+          "power": "Power",
+          "switch": "Switch"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "D-LOGG options",
+        "description": "Change the polling interval and rename or retype the channels.",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    },
+    "selector": {
+      "channel_type": {
+        "options": {
+          "temperature": "Temperature",
+          "power": "Power",
+          "switch": "Switch"
+        }
+      }
+    }
+  }
+}

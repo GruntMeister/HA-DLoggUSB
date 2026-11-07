@@ -1,0 +1,7 @@
+{
+  "entity": {
+    "switch": {
+      "default": "mdi:power-switch"
+    }
+  }
+}

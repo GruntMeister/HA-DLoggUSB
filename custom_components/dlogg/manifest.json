@@ -1,0 +1,16 @@
+{
+  "domain": "dlogg",
+  "name": "D-LOGG USB",
+  "codeowners": [
+    "@GruntMeister"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/GruntMeister/HA-DLoggUSB",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [
+    "pyserial==3.5"
+  ],
+  "version": "1.0.5",
+  "issue_tracker": "https://github.com/GruntMeister/HA-DLoggUSB/issues"
+}
