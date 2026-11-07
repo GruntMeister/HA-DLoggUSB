@@ -167,9 +167,9 @@ class DLoggOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the channel form pre-filled with the current configuration."""
         entry = self.config_entry
+        # Kinds are only used for ordering; every channel defaults to disabled
         channel_kinds = {
-            channel: TYPE_SWITCH if channel.startswith("A") else TYPE_TEMPERATURE
-            for channel in entry.data.get(CONF_CHANNELS, {})
+            channel: TYPE_DISABLED for channel in entry.data.get(CONF_CHANNELS, {})
         }
         if user_input is not None:
             return self.async_create_entry(
@@ -181,7 +181,7 @@ class DLoggOptionsFlow(OptionsFlow):
         defaults = {
             channel: {
                 CONF_CHANNEL_NAME: config.get(CONF_CHANNEL_NAME, channel),
-                CONF_CHANNEL_TYPE: config.get(CONF_CHANNEL_TYPE, TYPE_TEMPERATURE),
+                CONF_CHANNEL_TYPE: config.get(CONF_CHANNEL_TYPE, TYPE_DISABLED),
             }
             for channel, config in entry.data.get(CONF_CHANNELS, {}).items()
         }
