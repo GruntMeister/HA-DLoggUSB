@@ -155,21 +155,28 @@ class DLoggClient:
         for device in devices:
             prefix = f"C{device['index']}_"
             for channel, sensor in device["sensors"].items():
-                merged["sensors"][prefix + channel] = sensor
+                # Schematic naming: sensors are S1..S16 (protocol calls them T1..T16)
+                merged["sensors"][prefix + channel.replace("T", "S")] = sensor
             for channel, state in device["outputs"].items():
                 merged["outputs"][prefix + channel] = state
         return merged
 
 
 def detect_channels(port: str, baudrate: int = 115200) -> dict[str, str]:
-    """Connect once and return the usable channels as {channel_id: kind}."""
+    """Connect once and return ALL channels as {channel_id: kind}.
+
+    Channels are listed in schematic order per controller: sensors S1..S16
+    first, then actors/outputs A1..A16 (e.g. C1_S1..C1_S16, C1_A1..C1_A16,
+    C2_S1..). Unused sensors keep kind "unused" so the config flow can list
+    them as well (default type "disabled").
+    """
     client = DLoggClient(port, baudrate)
     data = client.read()
-    channels = {
-        channel: sensor["kind"]
-        for channel, sensor in data["sensors"].items()
-        if sensor["kind"] != KIND_UNUSED
-    }
-    # Outputs A1..A16 are digital states
-    channels.update({channel: KIND_DIGITAL for channel in data["outputs"]})
-    return channels
+
+    def sort_key(channel: str):
+        controller, rest = channel.split("_")  # e.g. "C1", "S12"
+        return (controller, 0 if rest[0] == "S" else 1, int(rest[1:]))
+
+    channels = {ch: s["kind"] for ch, s in data["sensors"].items()}
+    channels.update({ch: KIND_DIGITAL for ch in data["outputs"]})
+    return dict(sorted(channels.items(), key=lambda item: sort_key(item[0])))

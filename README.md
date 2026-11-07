@@ -8,7 +8,7 @@ It reads the current values over the DL-Bus via the serial USB interface.
 
 - UI config flow: serial port, baud rate and polling interval
 - **Freely configurable channel names**: every detected channel
-  (`C1_T1..C1_T16`, `C1_A1..C1_A16`, `C2_…` for a second controller in 2DL mode)
+  (`C1_S1..C1_S16`, `C1_A1..C1_A16`, `C2_…` for a second controller in 2DL mode)
   gets a custom name and one of three value types in the UI:
   - **Temperature** (°C sensor)
   - **Power** (W sensor)
@@ -44,9 +44,8 @@ It reads the current values over the DL-Bus via the serial USB interface.
 ## Two controllers (2DL mode)
 
 In 2DL mode the D-LOGG returns two controller blocks. Channels are namespaced
-per controller: `C1_T1..C1_T16` / `C1_A1..C1_A16` for the first controller and
-`C2_T1..C2_T16` / `C2_A1..C2_A16` for the second (sensors T1–T16, outputs
-A1–A16 including the PWM outputs). A set of sensible default names for a
+per controller: `C1_S1..C1_S16` / `C1_A1..C1_A16` for the first controller and
+`C2_S1..C2_S16` / `C2_A1..C2_A16` for the second (sensors S1–S16, actors A1–A16 including the PWM outputs). A set of sensible default names for a
 two-controller solar setup is pre-filled and can be changed freely in the
 config flow or later via the integration options.
 
@@ -56,44 +55,6 @@ config flow or later via the integration options.
   binary sensors showing the current output state; they cannot be toggled
   from Home Assistant.
 - Requires `pyserial` (installed automatically via the manifest).
-
-## Lovelace card
-
-The integration ships a custom card (`custom:dlogg-solar-card`) that draws a
-schematic of the **storage tank** (with its temperature sensors), the **solar
-collector** (irradiation + solar tank temperature), the **heat generator**
-(flow/return) and **two heating circuits** (flow/return/room). Temperatures
-are color-coded (blue = cold, red = hot).
-
-After installing the integration and restarting HA, add the card to a
-dashboard via YAML (entity ids depend on your configured channel names):
-
-```yaml
-type: custom:dlogg-solar-card
-title: Solar thermal system
-tank:                       # C1_T2, C1_T3, C1_T4, C1_T6
-  top: sensor.tank_1_top
-  coupling: sensor.tank_1_coupling
-  reserve: sensor.tank_1_reserve_1
-  charging_line: sensor.tank_1_charging_line
-solar:                      # C1_T13, C1_T12
-  irradiation: sensor.sol_solar_irradiation
-  tank: sensor.sol_solar_tank_temperature
-heat_generator:             # C1_T7, C1_T9
-  flow: sensor.we1_operating_temperature
-  return: sensor.we1_return_temperature
-circuit1:                   # C1_T10, C1_T11, C1_T8 (WA1)
-  flow: sensor.wa1_flow_temperature
-  return: sensor.wa1_return_temperature
-  room: sensor.wa1_room_temperature
-circuit2:                   # C2_T14, C2_T16, C2_T15 (WE2/WA2)
-  flow: sensor.we2_operating_temperature
-  return: sensor.we2_return_temperature
-  room: sensor.wa2_room_temperature
-```
-
-(If you renamed channels in the config flow, use the entity ids of your
-custom names instead.)
 
 ## power-flow-card-plus example
 
@@ -106,17 +67,17 @@ type: custom:power-flow-card-plus
 title: Solar thermal system
 wide: true
 entities:
-  - entity: sensor.sol_solar_irradiation      # C1_T13
+  - entity: sensor.sol_solar_irradiation      # C1_S13
     display_name: SOL collector
     children:
-      - entity: sensor.sol_solar_tank_temperature  # C1_T12
+      - entity: sensor.sol_solar_tank_temperature  # C1_S12
         display_name: Solar storage
         children:
-          - entity: sensor.we1_operating_temperature  # C1_T7
+          - entity: sensor.we1_operating_temperature  # C1_S7
             display_name: Heat generator WE1
-          - entity: sensor.wa1_flow_temperature       # C1_T10
+          - entity: sensor.wa1_flow_temperature       # C1_S10
             display_name: Heating circuit WA1
-          - entity: sensor.we2_operating_temperature  # C2_T14
+          - entity: sensor.we2_operating_temperature  # C2_S14
             display_name: Heat generator WE2 / WA2
 ```
 

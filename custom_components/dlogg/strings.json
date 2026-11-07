@@ -12,7 +12,7 @@
       },
       "channels": {
         "title": "Configure channels",
-        "description": "Give every detected channel a name and choose its value type: Temperature, Power or Switch."
+        "description": "All channels are listed in schematic order (C1_S1..C1_S16, C1_A1..C1_A16, C2_...). Every channel is disabled by default - give it a name and a type to enable it: Temperature, Power or Switch (read-only)."
       }
     },
     "error": {
@@ -22,6 +22,7 @@
     "selector": {
       "channel_type": {
         "options": {
+          "disabled": "Disabled",
           "temperature": "Temperature",
           "power": "Power",
           "switch": "Switch (read-only)"
@@ -42,6 +43,7 @@
     "selector": {
       "channel_type": {
         "options": {
+          "disabled": "Disabled",
           "temperature": "Temperature",
           "power": "Power",
           "switch": "Switch (read-only)"

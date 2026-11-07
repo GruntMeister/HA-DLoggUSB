@@ -35,24 +35,13 @@ from .const import (
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
-    TYPE_POWER,
-    TYPE_SWITCH,
-    TYPE_TEMPERATURE,
+    TYPE_DISABLED,
 )
-from .dlogg import KIND_DIGITAL, KIND_FLOW, KIND_RADIATION, detect_channels
+from .dlogg import detect_channels
 
 _LOGGER = logging.getLogger(__name__)
 
 BAUDRATES = [9600, 19200, 38400, 57600, 115200]
-
-
-def _default_type(kind: str) -> str:
-    """Pick a sensible default value type for a detected channel kind."""
-    if kind in (KIND_FLOW, KIND_RADIATION):
-        return TYPE_POWER
-    if kind == KIND_DIGITAL:
-        return TYPE_SWITCH
-    return TYPE_TEMPERATURE
 
 
 def _channel_schema(
@@ -62,9 +51,9 @@ def _channel_schema(
     """Build the form that maps each channel to a free name and a value type."""
     defaults = defaults or {}
     fields: dict[Any, Any] = {}
-    for channel, kind in channel_kinds.items():
+    for channel in channel_kinds:
         name_default = DEFAULT_CHANNEL_NAMES.get(channel, channel)
-        type_default = _default_type(kind)
+        type_default = TYPE_DISABLED
         if channel in defaults:
             name_default = defaults[channel].get(CONF_CHANNEL_NAME, name_default)
             type_default = defaults[channel].get(CONF_CHANNEL_TYPE, type_default)
@@ -82,10 +71,10 @@ def _channel_schema(
 def _extract_channels(user_input: dict[str, Any], channel_kinds: dict[str, str]) -> dict[str, dict[str, str]]:
     """Turn the submitted form fields into the stored channel configuration."""
     channels: dict[str, dict[str, str]] = {}
-    for channel, kind in channel_kinds.items():
+    for channel in channel_kinds:
         channels[channel] = {
             CONF_CHANNEL_NAME: user_input.get(f"name_{channel}") or channel,
-            CONF_CHANNEL_TYPE: user_input.get(f"type_{channel}") or _default_type(kind),
+            CONF_CHANNEL_TYPE: user_input.get(f"type_{channel}") or TYPE_DISABLED,
         }
     return channels
 
@@ -154,9 +143,9 @@ class DLoggConfigFlow(ConfigFlow, domain=DOMAIN):
         defaults = {
             channel: {
                 CONF_CHANNEL_NAME: DEFAULT_CHANNEL_NAMES.get(channel, channel),
-                CONF_CHANNEL_TYPE: _default_type(kind),
+                CONF_CHANNEL_TYPE: TYPE_DISABLED,
             }
-            for channel, kind in self._channel_kinds.items()
+            for channel in self._channel_kinds
         }
         return self.async_show_form(
             step_id="channels",
