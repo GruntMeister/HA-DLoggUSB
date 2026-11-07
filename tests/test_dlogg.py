@@ -333,7 +333,7 @@ class TestClient(unittest.TestCase):
             [bytes([0xA8]), MIXED_FRAME_1DL],
             lambda: dlogg.DLoggClient("/dev/ttyUSB0", 115200).read(),
         )
-        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
+        self.assertEqual(result["sensors"]["C1_S1"]["value"], 52.3)
         self.assertEqual(result["outputs"]["C1_A1"], 1)
         # Mode query then current-data request were sent
         self.assertEqual(fake.written, [bytes([0x81]), bytes([0xAB])])
@@ -346,7 +346,7 @@ class TestClient(unittest.TestCase):
             [bytes([0xD1])] + split,
             lambda: dlogg.DLoggClient("/dev/ttyUSB0").read(),
         )
-        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
+        self.assertEqual(result["sensors"]["C1_S1"]["value"], 52.3)
 
     def test_read_2dl_prefixes_controllers(self):
         block2 = make_block(temps={0: 101}, outputs_byte1=0x01)
@@ -355,8 +355,8 @@ class TestClient(unittest.TestCase):
             [bytes([0xD1]), frame],
             lambda: dlogg.DLoggClient("/dev/ttyUSB0").read(),
         )
-        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
-        self.assertEqual(result["sensors"]["C2_T1"]["value"], 10.1)
+        self.assertEqual(result["sensors"]["C1_S1"]["value"], 52.3)
+        self.assertEqual(result["sensors"]["C2_S1"]["value"], 10.1)
         self.assertEqual(result["outputs"]["C2_A1"], 1)
 
     def test_read_rejects_invalid_frame(self):
@@ -366,18 +366,33 @@ class TestClient(unittest.TestCase):
                 lambda: dlogg.DLoggClient("/dev/ttyUSB0").read(),
             )
 
-    def test_detect_channels_returns_kinds(self):
+    def test_detect_channels_lists_all_in_schematic_order(self):
         channels, _ = self._run_client(
             [bytes([0xA8]), MIXED_FRAME_1DL],
             lambda: dlogg.detect_channels("/dev/ttyUSB0", 115200),
         )
-        self.assertEqual(channels["C1_T1"], "temp")
-        self.assertEqual(channels["C1_T4"], "digital")
-        self.assertEqual(channels["C1_T6"], "flow")
-        self.assertEqual(channels["C1_T7"], "radiation")
-        self.assertNotIn("C1_T3", channels)  # unused channels are not offered
+        keys = list(channels)
+        # all 16 sensors first (S1..S16), then all 16 actors (A1..A16)
+        self.assertEqual(keys, [f"C1_S{i}" for i in range(1, 17)] + [f"C1_A{i}" for i in range(1, 17)])
+        self.assertEqual(channels["C1_S1"], "temp")
+        self.assertEqual(channels["C1_S3"], "unused")  # unused sensors are listed too
+        self.assertEqual(channels["C1_S4"], "digital")
+        self.assertEqual(channels["C1_S6"], "flow")
+        self.assertEqual(channels["C1_S7"], "radiation")
         self.assertEqual(channels["C1_A1"], "digital")
-        self.assertEqual(len([c for c in channels if "_A" in c]), 16)
+
+    def test_detect_channels_2dl_order(self):
+        block2 = make_block(temps={0: 101})
+        frame = make_2dl_frame(MIXED_BLOCK, block2)
+        channels, _ = self._run_client(
+            [bytes([0xD1]), frame],
+            lambda: dlogg.detect_channels("/dev/ttyUSB0", 115200),
+        )
+        keys = list(channels)
+        self.assertEqual(keys[:16], [f"C1_S{i}" for i in range(1, 17)])
+        self.assertEqual(keys[16:32], [f"C1_A{i}" for i in range(1, 17)])
+        self.assertEqual(keys[32:48], [f"C2_S{i}" for i in range(1, 17)])
+        self.assertEqual(keys[48:], [f"C2_A{i}" for i in range(1, 17)])
 
 
 class TestDefaultChannelNames(unittest.TestCase):
@@ -386,13 +401,21 @@ class TestDefaultChannelNames(unittest.TestCase):
     def test_controller_names_present(self):
         const = _load_module("dlogg_const_test", REPO_ROOT / "custom_components" / "dlogg" / "const.py")
         names = const.DEFAULT_CHANNEL_NAMES
-        self.assertEqual(names["C1_T1"], "Outdoor temperature")
-        self.assertEqual(names["C1_T13"], "SOL solar irradiation")
+        self.assertEqual(names["C1_S1"], "Outdoor temperature")
+        self.assertEqual(names["C1_S13"], "SOL solar irradiation")
         self.assertEqual(names["C1_A1"], "WE1 charging pump")
         self.assertEqual(names["C1_A14"], "P2 - PWM WA1 heating pump")
-        self.assertEqual(names["C2_T14"], "WE2 operating temperature")
+        self.assertEqual(names["C2_S14"], "WE2 operating temperature")
         self.assertEqual(names["C2_A1"], "WE2 charging pump")
         self.assertEqual(names["C2_A16"], "P6 - PWM WA2 heating pump")
+
+    def test_disabled_is_default_type(self):
+        const = _load_module("dlogg_const_test", REPO_ROOT / "custom_components" / "dlogg" / "const.py")
+        self.assertEqual(const.CHANNEL_TYPES[0], "disabled")
+        self.assertIn("disabled", const.CHANNEL_TYPES)
+        self.assertIn("temperature", const.CHANNEL_TYPES)
+        self.assertIn("power", const.CHANNEL_TYPES)
+        self.assertIn("switch", const.CHANNEL_TYPES)
 
 
 if __name__ == "__main__":

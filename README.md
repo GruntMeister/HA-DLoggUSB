@@ -7,9 +7,10 @@ It reads the current values over the DL-Bus via the serial USB interface.
 ## Features
 
 - UI config flow: serial port, baud rate and polling interval
-- **Freely configurable channel names**: every detected channel
-  (`C1_T1..C1_T16`, `C1_A1..C1_A16`, `C2_…` for a second controller in 2DL mode)
-  gets a custom name and one of three value types in the UI:
+- **Freely configurable channel names**: all channels are listed in schematic
+  order (`C1_S1..C1_S16`, `C1_A1..C1_A16`, then `C2_…` for a second controller in
+  2DL mode; S = sensors, A = actors). Each channel gets a custom name and a type.
+  - **Disabled** (default — no entity is created)
   - **Temperature** (°C sensor)
   - **Power** (W sensor)
   - **Switch** (read-only binary sensor mirroring a digital channel/output —
@@ -35,18 +36,18 @@ It reads the current values over the DL-Bus via the serial USB interface.
 1. Go to **Settings → Devices & Services → Add Integration** and search for
    **D-LOGG USB**.
 2. Enter the serial port of the D-LOGG USB adapter
-   (Linux: e.g. `/dev/ttyUSB0`), the baud rate
+   (Linux: e.g. `/dev/ttyUSB0`, Windows: e.g. `COM4`), the baud rate
    (default 115200) and the polling interval in seconds.
-3. The integration detects the available channels. Assign each channel a
-   **name** and a **type** (Temperature / Power / Switch).
+3. The integration lists all channels in schematic order. Assign each channel
+   a **name** and a **type** (Disabled / Temperature / Power / Switch); only
+   enabled channels become entities.
 4. The channels appear as sensors/switches under a "D-LOGG" device.
 
 ## Two controllers (2DL mode)
 
 In 2DL mode the D-LOGG returns two controller blocks. Channels are namespaced
-per controller: `C1_T1..C1_T16` / `C1_A1..C1_A16` for the first controller and
-`C2_T1..C2_T16` / `C2_A1..C2_A16` for the second (sensors T1–T16, outputs
-A1–A16 including the PWM outputs). A set of sensible default names for a
+per controller: `C1_S1..C1_S16` / `C1_A1..C1_A16` for the first controller and
+`C2_S1..C2_S16` / `C2_A1..C2_A16` for the second (sensors S1–S16, actors A1–A16 including the PWM outputs). A set of sensible default names for a
 two-controller solar setup is pre-filled and can be changed freely in the
 config flow or later via the integration options.
 
@@ -57,6 +58,33 @@ config flow or later via the integration options.
   from Home Assistant.
 - Requires `pyserial` (installed automatically via the manifest).
 
+## power-flow-card-plus example
+
+The card visualizes power flows. With the D-LOGG channels the natural mapping
+is **SOL (irradiation) → storage tank → heat generator / heating circuits**.
+Entity ids assume the default channel names:
+
+```yaml
+type: custom:power-flow-card-plus
+title: Solar thermal system
+wide: true
+entities:
+  - entity: sensor.sol_solar_irradiation      # C1_S13
+    display_name: SOL collector
+    children:
+      - entity: sensor.sol_solar_tank_temperature  # C1_S12
+        display_name: Solar storage
+        children:
+          - entity: sensor.we1_operating_temperature  # C1_S7
+            display_name: Heat generator WE1
+          - entity: sensor.wa1_flow_temperature       # C1_S10
+            display_name: Heating circuit WA1
+          - entity: sensor.we2_operating_temperature  # C2_S14
+            display_name: Heat generator WE2 / WA2
+```
+
+For real kW flow widths add template sensors (e.g. solar power ≈
+irradiation × collector area × efficiency) and reference those instead.
 
 ## Tests
 
