@@ -96,6 +96,7 @@ class DLoggConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Ask for the serial port and try to detect the channels."""
         errors: dict[str, str] = {}
+        error_detail = ""
         if user_input is not None:
             self._port = user_input[CONF_PORT]
             self._baudrate = user_input[CONF_BAUDRATE]
@@ -104,9 +105,10 @@ class DLoggConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._channel_kinds = await self.hass.async_add_executor_job(
                     detect_channels, self._port, self._baudrate
                 )
-            except Exception:
+            except Exception as err:
                 _LOGGER.exception("Cannot connect to D-LOGG on %s", self._port)
                 errors["base"] = "cannot_connect"
+                error_detail = str(err)
             else:
                 if not self._channel_kinds:
                     errors["base"] = "no_channels"
@@ -124,33 +126,49 @@ class DLoggConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             }
         )
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"error": error_detail},
+        )
 
     async def async_step_channels(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Let the user assign a name and a value type to every detected channel."""
-        if user_input is not None:
-            return self.async_create_entry(
-                title=f"D-LOGG ({self._port})",
-                data={
-                    CONF_PORT: self._port,
-                    CONF_BAUDRATE: self._baudrate,
-                    CONF_SCAN_INTERVAL: self._scan_interval,
-                    CONF_CHANNELS: _extract_channels(user_input, self._channel_kinds),
-                },
-            )
-        defaults = {
-            channel: {
-                CONF_CHANNEL_NAME: DEFAULT_CHANNEL_NAMES.get(channel, channel),
-                CONF_CHANNEL_TYPE: TYPE_DISABLED,
+        try:
+            if user_input is not None:
+                return self.async_create_entry(
+                    title=f"D-LOGG ({self._port})",
+                    data={
+                        CONF_PORT: self._port,
+                        CONF_BAUDRATE: self._baudrate,
+                        CONF_SCAN_INTERVAL: self._scan_interval,
+                        CONF_CHANNELS: _extract_channels(user_input, self._channel_kinds),
+                    },
+                )
+            defaults = {
+                channel: {
+                    CONF_CHANNEL_NAME: DEFAULT_CHANNEL_NAMES.get(channel, channel),
+                    CONF_CHANNEL_TYPE: TYPE_DISABLED,
+                }
+                for channel in self._channel_kinds
             }
-            for channel in self._channel_kinds
-        }
-        return self.async_show_form(
-            step_id="channels",
-            data_schema=_channel_schema(self._channel_kinds, defaults),
-        )
+            return self.async_show_form(
+                step_id="channels",
+                data_schema=_channel_schema(self._channel_kinds, defaults),
+            )
+        except Exception as err:
+            # Show unexpected errors as a warning inside the dialog instead of
+            # only logging them (the flow would otherwise abort silently).
+            _LOGGER.exception("Error in channels step")
+            return self.async_show_form(
+                step_id="channels",
+                data_schema=vol.Schema({}),
+                errors={"base": "unknown"},
+                description_placeholders={"error": str(err)},
+            )
 
     @staticmethod
     @callback
@@ -166,41 +184,52 @@ class DLoggOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Show the channel form pre-filled with the current configuration."""
-        entry = self.config_entry
-        # Kinds are only used for ordering; every channel defaults to disabled
-        channel_kinds = {
-            channel: TYPE_DISABLED for channel in entry.data.get(CONF_CHANNELS, {})
-        }
-        if user_input is not None:
-            return self.async_create_entry(
-                data={
-                    CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
-                    CONF_CHANNELS: _extract_channels(user_input, channel_kinds),
+        try:
+            entry = self.config_entry
+            # Kinds are only used for ordering; every channel defaults to disabled
+            channel_kinds = {
+                channel: TYPE_DISABLED for channel in entry.data.get(CONF_CHANNELS, {})
+            }
+            if user_input is not None:
+                return self.async_create_entry(
+                    data={
+                        CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
+                        CONF_CHANNELS: _extract_channels(user_input, channel_kinds),
+                    }
+                )
+            defaults = {
+                channel: {
+                    CONF_CHANNEL_NAME: config.get(CONF_CHANNEL_NAME, channel),
+                    CONF_CHANNEL_TYPE: config.get(CONF_CHANNEL_TYPE, TYPE_DISABLED),
+                }
+                for channel, config in entry.data.get(CONF_CHANNELS, {}).items()
+            }
+            # Merge already saved option values on top of the initial config
+            for channel, config in entry.options.get(CONF_CHANNELS, {}).items():
+                defaults.setdefault(channel, {}).update(config)
+
+            schema = vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SCAN_INTERVAL,
+                        default=entry.options.get(
+                            CONF_SCAN_INTERVAL,
+                            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                        ),
+                    ): vol.All(
+                        vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
+                    ),
+                    **_channel_schema(channel_kinds, defaults).schema,
                 }
             )
-        defaults = {
-            channel: {
-                CONF_CHANNEL_NAME: config.get(CONF_CHANNEL_NAME, channel),
-                CONF_CHANNEL_TYPE: config.get(CONF_CHANNEL_TYPE, TYPE_DISABLED),
-            }
-            for channel, config in entry.data.get(CONF_CHANNELS, {}).items()
-        }
-        # Merge already saved option values on top of the initial config
-        for channel, config in entry.options.get(CONF_CHANNELS, {}).items():
-            defaults.setdefault(channel, {}).update(config)
-
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_SCAN_INTERVAL,
-                    default=entry.options.get(
-                        CONF_SCAN_INTERVAL,
-                        entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                    ),
-                ): vol.All(
-                    vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
-                ),
-                **_channel_schema(channel_kinds, defaults).schema,
-            }
-        )
-        return self.async_show_form(step_id="init", data_schema=schema)
+            return self.async_show_form(step_id="init", data_schema=schema)
+        except Exception as err:
+            # Show unexpected errors as a warning inside the dialog instead of
+            # only logging them (the flow would otherwise abort silently).
+            _LOGGER.exception("Error in options step")
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema({}),
+                errors={"base": "unknown"},
+                description_placeholders={"error": str(err)},
+            )

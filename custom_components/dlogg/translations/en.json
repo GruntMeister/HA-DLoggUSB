@@ -16,8 +16,9 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the D-LOGG. Check the port and that the device is plugged in.",
-      "no_channels": "No usable channels were detected on the D-LOGG."
+      "cannot_connect": "Failed to connect to the D-LOGG. Check the port and that the device is plugged in. Details: {error}",
+      "no_channels": "No usable channels were detected on the D-LOGG.",
+      "unknown": "Unexpected error: {error}"
     },
     "selector": {
       "channel_type": {
@@ -49,6 +50,9 @@
           "switch": "Switch (read-only)"
         }
       }
+    },
+    "error": {
+      "unknown": "Unexpected error: {error}"
     }
   }
 }
