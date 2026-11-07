@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+
+from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -19,6 +22,18 @@ from .coordinator import DLoggCoordinator
 from .dlogg import DLoggClient
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+
+CARD_URL_PATH = "/dlogg_card"
+CARD_JS = "dlogg-solar-card.js"
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Serve the Lovelace card as a static frontend resource."""
+    hass.http.register_static_path(
+        CARD_URL_PATH, os.path.join(os.path.dirname(__file__), "www")
+    )
+    frontend.add_extra_js_url(hass, f"{CARD_URL_PATH}/{CARD_JS}")
+    return True
 
 
 def get_channel_config(entry: ConfigEntry) -> dict[str, dict[str, str]]:
