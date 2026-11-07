@@ -57,6 +57,44 @@ config flow or later via the integration options.
   from Home Assistant.
 - Requires `pyserial` (installed automatically via the manifest).
 
+## Lovelace card
+
+The integration ships a custom card (`custom:dlogg-solar-card`) that draws a
+schematic of the **storage tank** (with its temperature sensors), the **solar
+collector** (irradiation + solar tank temperature), the **heat generator**
+(flow/return) and **two heating circuits** (flow/return/room). Temperatures
+are color-coded (blue = cold, red = hot).
+
+After installing the integration and restarting HA, add the card to a
+dashboard via YAML (entity ids depend on your configured channel names):
+
+```yaml
+type: custom:dlogg-solar-card
+title: Solar thermal system
+tank:                       # C1_T2, C1_T3, C1_T4, C1_T6
+  top: sensor.tank_1_top
+  coupling: sensor.tank_1_coupling
+  reserve: sensor.tank_1_reserve_1
+  charging_line: sensor.tank_1_charging_line
+solar:                      # C1_T13, C1_T12
+  irradiation: sensor.sol_solar_irradiation
+  tank: sensor.sol_solar_tank_temperature
+heat_generator:             # C1_T7, C1_T9
+  flow: sensor.we1_operating_temperature
+  return: sensor.we1_return_temperature
+circuit1:                   # C1_T10, C1_T11, C1_T8 (WA1)
+  flow: sensor.wa1_flow_temperature
+  return: sensor.wa1_return_temperature
+  room: sensor.wa1_room_temperature
+circuit2:                   # C2_T14, C2_T16, C2_T15 (WE2/WA2)
+  flow: sensor.we2_operating_temperature
+  return: sensor.we2_return_temperature
+  room: sensor.wa2_room_temperature
+```
+
+(If you renamed channels in the config flow, use the entity ids of your
+custom names instead.)
+
 ## Tests
 
 Unit tests for the protocol parser live in `tests/`. They run with the
