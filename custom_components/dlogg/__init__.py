@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 from homeassistant.components import frontend
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -27,20 +28,25 @@ CARD_URL_PATH = "/dlogg_card"
 CARD_JS = "dlogg-solar-card.js"
 
 
-def _register_card_resource(hass: HomeAssistant) -> None:
+async def _async_register_card_resource(hass: HomeAssistant) -> None:
     """Serve the Lovelace card as a static frontend resource (once)."""
     if hass.data.get(f"{DOMAIN}_card_registered"):
         return
     hass.data[f"{DOMAIN}_card_registered"] = True
-    hass.http.register_static_path(
-        CARD_URL_PATH, os.path.join(os.path.dirname(__file__), "www")
-    )
+    www_path = os.path.join(os.path.dirname(__file__), "www")
+    if hasattr(hass.http, "async_register_static_paths"):
+        # HA 2024.x+: register_static_path was replaced by async_register_static_paths
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL_PATH, www_path)]
+        )
+    else:
+        hass.http.register_static_path(CARD_URL_PATH, www_path)
     frontend.add_extra_js_url(hass, f"{CARD_URL_PATH}/{CARD_JS}")
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the D-LOGG integration and register the Lovelace card."""
-    _register_card_resource(hass)
+    await _async_register_card_resource(hass)
     return True
 
 
@@ -60,7 +66,7 @@ def get_scan_interval(entry: ConfigEntry) -> int:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up the D-LOGG integration from a config entry."""
-    _register_card_resource(hass)
+    await _async_register_card_resource(hass)
     client = DLoggClient(
         entry.data[CONF_PORT],
         entry.data.get(CONF_BAUDRATE, DEFAULT_BAUDRATE),
