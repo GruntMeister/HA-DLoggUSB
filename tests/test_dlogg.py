@@ -163,13 +163,22 @@ MIXED_FRAME_1DL = make_1dl_frame(MIXED_BLOCK)
 
 
 def _mine_as_reference(device: dict) -> dict:
-    """Convert my device dict into the reference shape ({temps, outputs})."""
+    """Convert my device dict into the reference shape ({temps, outputs}).
+
+    The reference only parses outputs A1..A13, so A14..A16 are dropped for
+    the comparison (they are covered by the golden tests).
+    """
     temps = {
         channel: sensor["value"]
         for channel, sensor in device["sensors"].items()
         if sensor["kind"] == "temp"
     }
-    return {"temps": temps, "outputs": device["outputs"]}
+    outputs = {
+        channel: state
+        for channel, state in device["outputs"].items()
+        if int(channel[1:]) <= 13
+    }
+    return {"temps": temps, "outputs": outputs}
 
 
 class TestDecodeAgainstReference(unittest.TestCase):
@@ -254,17 +263,26 @@ class TestGoldenValues(unittest.TestCase):
 
     def test_outputs(self):
         outputs = self.device["outputs"]
-        self.assertEqual(len(outputs), 13)
+        self.assertEqual(len(outputs), 16)
         for channel in ("A1", "A6", "A8", "A9", "A10"):
             self.assertEqual(outputs[channel], 1, channel)
-        for channel in ("A2", "A3", "A4", "A5", "A7", "A11", "A12", "A13"):
+        for channel in ("A2", "A3", "A4", "A5", "A7", "A11", "A12", "A13", "A14", "A15", "A16"):
             self.assertEqual(outputs[channel], 0, channel)
+
+    def test_outputs_a14_to_a16_from_high_bits(self):
+        block = make_block(outputs_byte2=0b11000000)  # bits 6,7 -> A15, A16
+        device = dlogg.parse_current_frame(make_1dl_frame(block))[0]
+        self.assertEqual(device["outputs"]["A15"], 1)
+        self.assertEqual(device["outputs"]["A16"], 1)
+        self.assertEqual(device["outputs"]["A14"], 0)
 
     def test_2dl_frame_has_two_devices(self):
         block2 = make_block(temps={0: 101})
         frame = make_2dl_frame(MIXED_BLOCK, block2)
         devices = dlogg.parse_current_frame(frame)
         self.assertEqual(len(devices), 2)
+        self.assertEqual(devices[0]["index"], 1)
+        self.assertEqual(devices[1]["index"], 2)
         self.assertEqual(devices[1]["sensors"]["T1"]["value"], 10.1)
 
 
@@ -315,8 +333,8 @@ class TestClient(unittest.TestCase):
             [bytes([0xA8]), MIXED_FRAME_1DL],
             lambda: dlogg.DLoggClient("/dev/ttyUSB0", 115200).read(),
         )
-        self.assertEqual(result["sensors"]["T1"]["value"], 52.3)
-        self.assertEqual(result["outputs"]["A1"], 1)
+        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
+        self.assertEqual(result["outputs"]["C1_A1"], 1)
         # Mode query then current-data request were sent
         self.assertEqual(fake.written, [bytes([0x81]), bytes([0xAB])])
         self.assertTrue(fake.closed)
@@ -328,7 +346,18 @@ class TestClient(unittest.TestCase):
             [bytes([0xD1])] + split,
             lambda: dlogg.DLoggClient("/dev/ttyUSB0").read(),
         )
-        self.assertEqual(result["sensors"]["T1"]["value"], 52.3)
+        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
+
+    def test_read_2dl_prefixes_controllers(self):
+        block2 = make_block(temps={0: 101}, outputs_byte1=0x01)
+        frame = make_2dl_frame(MIXED_BLOCK, block2)
+        result, _ = self._run_client(
+            [bytes([0xD1]), frame],
+            lambda: dlogg.DLoggClient("/dev/ttyUSB0").read(),
+        )
+        self.assertEqual(result["sensors"]["C1_T1"]["value"], 52.3)
+        self.assertEqual(result["sensors"]["C2_T1"]["value"], 10.1)
+        self.assertEqual(result["outputs"]["C2_A1"], 1)
 
     def test_read_rejects_invalid_frame(self):
         with self.assertRaises(RuntimeError):
@@ -342,13 +371,28 @@ class TestClient(unittest.TestCase):
             [bytes([0xA8]), MIXED_FRAME_1DL],
             lambda: dlogg.detect_channels("/dev/ttyUSB0", 115200),
         )
-        self.assertEqual(channels["T1"], "temp")
-        self.assertEqual(channels["T4"], "digital")
-        self.assertEqual(channels["T6"], "flow")
-        self.assertEqual(channels["T7"], "radiation")
-        self.assertNotIn("T3", channels)  # unused channels are not offered
-        self.assertEqual(channels["A1"], "digital")
-        self.assertEqual(len([c for c in channels if c.startswith("A")]), 13)
+        self.assertEqual(channels["C1_T1"], "temp")
+        self.assertEqual(channels["C1_T4"], "digital")
+        self.assertEqual(channels["C1_T6"], "flow")
+        self.assertEqual(channels["C1_T7"], "radiation")
+        self.assertNotIn("C1_T3", channels)  # unused channels are not offered
+        self.assertEqual(channels["C1_A1"], "digital")
+        self.assertEqual(len([c for c in channels if "_A" in c]), 16)
+
+
+class TestDefaultChannelNames(unittest.TestCase):
+    """The pre-filled names for the two-controller setup must exist."""
+
+    def test_controller_names_present(self):
+        const = _load_module("dlogg_const_test", REPO_ROOT / "custom_components" / "dlogg" / "const.py")
+        names = const.DEFAULT_CHANNEL_NAMES
+        self.assertEqual(names["C1_T1"], "Outdoor temperature")
+        self.assertEqual(names["C1_T13"], "SOL solar irradiation")
+        self.assertEqual(names["C1_A1"], "WE1 charging pump")
+        self.assertEqual(names["C1_A14"], "P2 - PWM WA1 heating pump")
+        self.assertEqual(names["C2_T14"], "WE2 operating temperature")
+        self.assertEqual(names["C2_A1"], "WE2 charging pump")
+        self.assertEqual(names["C2_A16"], "P6 - PWM WA2 heating pump")
 
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@
         "options": {
           "temperature": "Temperature",
           "power": "Power",
-          "switch": "Switch"
+          "switch": "Switch (read-only)"
         }
       }
     }
@@ -44,7 +44,7 @@
         "options": {
           "temperature": "Temperature",
           "power": "Power",
-          "switch": "Switch"
+          "switch": "Switch (read-only)"
         }
       }
     }

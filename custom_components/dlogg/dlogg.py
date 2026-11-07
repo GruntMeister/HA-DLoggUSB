@@ -64,35 +64,40 @@ def decode_sensor_value(low: int, high: int) -> tuple[str, float]:
     return (KIND_UNKNOWN, math.nan)
 
 
-def _parse_uvr1611_block(data: bytes) -> dict[str, Any]:
-    """Parse the 55 data bytes of one UVR1611 block (sensors T1..T16, outputs A1..A13)."""
+def _parse_uvr1611_block(data: bytes, index: int) -> dict[str, Any]:
+    """Parse the 55 data bytes of one UVR1611 block.
+
+    Sensors T1..T16 (2 bytes each), outputs A1..A16 (bit masks in the
+    two bytes after the sensor block). The index identifies the controller
+    inside a 2DL frame (1 = C1, 2 = C2).
+    """
     sensors: dict[str, dict[str, Any]] = {}
-    for index in range(16):
-        low = data[2 * index]
-        high = data[2 * index + 1]
+    for sensor_index in range(16):
+        low = data[2 * sensor_index]
+        high = data[2 * sensor_index + 1]
         kind, value = decode_sensor_value(low, high)
-        sensors[f"T{index + 1}"] = {"kind": kind, "value": value}
+        sensors[f"T{sensor_index + 1}"] = {"kind": kind, "value": value}
 
     outputs: dict[str, int] = {}
     for bit in range(8):
         outputs[f"A{bit + 1}"] = (data[32] >> bit) & 1
-    for bit in range(5):
+    for bit in range(8):
         outputs[f"A{bit + 9}"] = (data[33] >> bit) & 1
 
-    return {"sensors": sensors, "outputs": outputs}
+    return {"index": index, "sensors": sensors, "outputs": outputs}
 
 
 def parse_current_frame(buf: bytes) -> list[dict[str, Any]]:
     """Parse a raw current-data frame (1DL = 57 bytes, 2DL = 113 bytes)."""
     devices: list[dict[str, Any]] = []
     if len(buf) == 57 and buf[0] == TYPE_UVR1611:
-        devices.append(_parse_uvr1611_block(buf[1:56]))
+        devices.append(_parse_uvr1611_block(buf[1:56], 1))
     elif len(buf) == 113:
         # 2DL frame: two device blocks of [type][55 data bytes]
-        for offset in (0, 56):
+        for block, offset in enumerate((0, 56), start=1):
             if buf[offset] == TYPE_UVR1611:
                 try:
-                    devices.append(_parse_uvr1611_block(buf[offset + 1 : offset + 56]))
+                    devices.append(_parse_uvr1611_block(buf[offset + 1 : offset + 56], block))
                 except IndexError:
                     continue
     return devices
@@ -148,8 +153,11 @@ class DLoggClient:
 
         merged: dict[str, Any] = {"sensors": {}, "outputs": {}}
         for device in devices:
-            merged["sensors"].update(device["sensors"])
-            merged["outputs"].update(device["outputs"])
+            prefix = f"C{device['index']}_"
+            for channel, sensor in device["sensors"].items():
+                merged["sensors"][prefix + channel] = sensor
+            for channel, state in device["outputs"].items():
+                merged["outputs"][prefix + channel] = state
         return merged
 
 
@@ -162,6 +170,6 @@ def detect_channels(port: str, baudrate: int = 115200) -> dict[str, str]:
         for channel, sensor in data["sensors"].items()
         if sensor["kind"] != KIND_UNUSED
     }
-    # Outputs A1..A13 are digital states
+    # Outputs A1..A16 are digital states
     channels.update({channel: KIND_DIGITAL for channel in data["outputs"]})
     return channels

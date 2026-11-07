@@ -29,6 +29,7 @@ from .const import (
     CONF_PORT,
     CONF_SCAN_INTERVAL,
     DEFAULT_BAUDRATE,
+    DEFAULT_CHANNEL_NAMES,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -62,10 +63,10 @@ def _channel_schema(
     defaults = defaults or {}
     fields: dict[Any, Any] = {}
     for channel, kind in channel_kinds.items():
-        name_default = channel
+        name_default = DEFAULT_CHANNEL_NAMES.get(channel, channel)
         type_default = _default_type(kind)
         if channel in defaults:
-            name_default = defaults[channel].get(CONF_CHANNEL_NAME, channel)
+            name_default = defaults[channel].get(CONF_CHANNEL_NAME, name_default)
             type_default = defaults[channel].get(CONF_CHANNEL_TYPE, type_default)
         fields[vol.Required(f"name_{channel}", default=name_default)] = str
         fields[vol.Required(f"type_{channel}", default=type_default)] = SelectSelector(
@@ -152,7 +153,7 @@ class DLoggConfigFlow(ConfigFlow, domain=DOMAIN):
             )
         defaults = {
             channel: {
-                CONF_CHANNEL_NAME: channel,
+                CONF_CHANNEL_NAME: DEFAULT_CHANNEL_NAMES.get(channel, channel),
                 CONF_CHANNEL_TYPE: _default_type(kind),
             }
             for channel, kind in self._channel_kinds.items()

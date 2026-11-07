@@ -7,11 +7,13 @@ It reads the current values over the DL-Bus via the serial USB interface.
 ## Features
 
 - UI config flow: serial port, baud rate and polling interval
-- **Freely configurable channel names**: every detected channel (T1–T16, A1–A13)
+- **Freely configurable channel names**: every detected channel
+  (`C1_T1..C1_T16`, `C1_A1..C1_A16`, `C2_…` for a second controller in 2DL mode)
   gets a custom name and one of three value types in the UI:
   - **Temperature** (°C sensor)
   - **Power** (W sensor)
-  - **Switch** (read-only switch mirroring a digital channel/output)
+  - **Switch** (read-only binary sensor mirroring a digital channel/output —
+    the D-LOGG cannot be toggled, so it is not shown as an interactive slider)
 - Names and types can be changed later via the integration options
 - Local polling, no cloud
 
@@ -36,13 +38,23 @@ It reads the current values over the DL-Bus via the serial USB interface.
    (Linux: e.g. `/dev/ttyUSB0`, Windows: e.g. `COM4`), the baud rate
    (default 115200) and the polling interval in seconds.
 3. The integration detects the available channels. Assign each channel a
-   **name** (e.g. "Hot water") and a **type** (Temperature / Power / Switch).
+   **name** and a **type** (Temperature / Power / Switch).
 4. The channels appear as sensors/switches under a "D-LOGG" device.
+
+## Two controllers (2DL mode)
+
+In 2DL mode the D-LOGG returns two controller blocks. Channels are namespaced
+per controller: `C1_T1..C1_T16` / `C1_A1..C1_A16` for the first controller and
+`C2_T1..C2_T16` / `C2_A1..C2_A16` for the second (sensors T1–T16, outputs
+A1–A16 including the PWM outputs). A set of sensible default names for a
+two-controller solar setup is pre-filled and can be changed freely in the
+config flow or later via the integration options.
 
 ## Notes
 
-- The D-LOGG protocol is read-only, so switch entities reflect the current
-  output state and cannot be toggled from Home Assistant.
+- The D-LOGG protocol is read-only, so "switch" channels are exposed as
+  binary sensors showing the current output state; they cannot be toggled
+  from Home Assistant.
 - Requires `pyserial` (installed automatically via the manifest).
 
 ## Tests

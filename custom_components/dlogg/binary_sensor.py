@@ -1,8 +1,13 @@
-"""Switch platform for the D-LOGG USB integration (digital channels and outputs)."""
+"""Binary sensor platform for the D-LOGG USB integration.
+
+Channels configured as "switch" are exposed as read-only binary sensors:
+the D-LOGG protocol only reports the current output state, it cannot be
+toggled, so the entity must not render as an interactive slider.
+"""
 
 from __future__ import annotations
 
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
@@ -19,22 +24,18 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create one read-only switch per channel configured as switch."""
+    """Create one read-only binary sensor per channel configured as switch."""
     coordinator: DLoggCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
-        DLoggSwitch(coordinator, entry, channel, config)
+        DLoggBinarySensor(coordinator, entry, channel, config)
         for channel, config in get_channel_config(entry).items()
         if config.get(CONF_CHANNEL_TYPE) == TYPE_SWITCH
     ]
     async_add_entities(entities)
 
 
-class DLoggSwitch(CoordinatorEntity[DLoggCoordinator], SwitchEntity):
-    """Read-only switch mirroring a digital D-LOGG channel or output.
-
-    The D-LOGG protocol only exposes the current state, so the switch
-    cannot be toggled from Home Assistant.
-    """
+class DLoggBinarySensor(CoordinatorEntity[DLoggCoordinator], BinarySensorEntity):
+    """Read-only on/off state of a digital D-LOGG channel or output."""
 
     _attr_has_entity_name = False
 
@@ -45,7 +46,7 @@ class DLoggSwitch(CoordinatorEntity[DLoggCoordinator], SwitchEntity):
         channel: str,
         config: dict[str, str],
     ) -> None:
-        """Initialize the switch."""
+        """Initialize the binary sensor."""
         super().__init__(coordinator)
         self._channel = channel
         self._attr_name = config.get(CONF_CHANNEL_NAME, channel)
@@ -62,7 +63,7 @@ class DLoggSwitch(CoordinatorEntity[DLoggCoordinator], SwitchEntity):
     def is_on(self) -> bool | None:
         """Return True when the channel/output is active."""
         data = self.coordinator.data or {}
-        if self._channel.startswith("A"):
+        if "_A" in self._channel:
             return bool(data.get("outputs", {}).get(self._channel, 0))
         sensor = data.get("sensors", {}).get(self._channel)
         if sensor is None:

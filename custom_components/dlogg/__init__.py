@@ -18,7 +18,7 @@ from .const import (
 from .coordinator import DLoggCoordinator
 from .dlogg import DLoggClient
 
-PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 def get_channel_config(entry: ConfigEntry) -> dict[str, dict[str, str]]:
