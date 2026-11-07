@@ -35,7 +35,7 @@ It reads the current values over the DL-Bus via the serial USB interface.
 1. Go to **Settings → Devices & Services → Add Integration** and search for
    **D-LOGG USB**.
 2. Enter the serial port of the D-LOGG USB adapter
-   (Linux: e.g. `/dev/ttyUSB0`, Windows: e.g. `COM4`), the baud rate
+   (Linux: e.g. `/dev/ttyUSB0`), the baud rate
    (default 115200) and the polling interval in seconds.
 3. The integration detects the available channels. Assign each channel a
    **name** and a **type** (Temperature / Power / Switch).
@@ -57,71 +57,6 @@ config flow or later via the integration options.
   from Home Assistant.
 - Requires `pyserial` (installed automatically via the manifest).
 
-## Lovelace card
-
-The integration ships a custom card (`custom:dlogg-solar-card`) that draws a
-schematic of the **storage tank** (with its temperature sensors), the **solar
-collector** (irradiation + solar tank temperature), the **heat generator**
-(flow/return) and **two heating circuits** (flow/return/room). Temperatures
-are color-coded (blue = cold, red = hot).
-
-After installing the integration and restarting HA, add the card to a
-dashboard via YAML (entity ids depend on your configured channel names):
-
-```yaml
-type: custom:dlogg-solar-card
-title: Solar thermal system
-tank:                       # C1_T2, C1_T3, C1_T4, C1_T6
-  top: sensor.tank_1_top
-  coupling: sensor.tank_1_coupling
-  reserve: sensor.tank_1_reserve_1
-  charging_line: sensor.tank_1_charging_line
-solar:                      # C1_T13, C1_T12
-  irradiation: sensor.sol_solar_irradiation
-  tank: sensor.sol_solar_tank_temperature
-heat_generator:             # C1_T7, C1_T9
-  flow: sensor.we1_operating_temperature
-  return: sensor.we1_return_temperature
-circuit1:                   # C1_T10, C1_T11, C1_T8 (WA1)
-  flow: sensor.wa1_flow_temperature
-  return: sensor.wa1_return_temperature
-  room: sensor.wa1_room_temperature
-circuit2:                   # C2_T14, C2_T16, C2_T15 (WE2/WA2)
-  flow: sensor.we2_operating_temperature
-  return: sensor.we2_return_temperature
-  room: sensor.wa2_room_temperature
-```
-
-(If you renamed channels in the config flow, use the entity ids of your
-custom names instead.)
-
-## power-flow-card-plus example
-
-The card visualizes power flows. With the D-LOGG channels the natural mapping
-is **SOL (irradiation) → storage tank → heat generator / heating circuits**.
-Entity ids assume the default channel names:
-
-```yaml
-type: custom:power-flow-card-plus
-title: Solar thermal system
-wide: true
-entities:
-  - entity: sensor.sol_solar_irradiation      # C1_T13
-    display_name: SOL collector
-    children:
-      - entity: sensor.sol_solar_tank_temperature  # C1_T12
-        display_name: Solar storage
-        children:
-          - entity: sensor.we1_operating_temperature  # C1_T7
-            display_name: Heat generator WE1
-          - entity: sensor.wa1_flow_temperature       # C1_T10
-            display_name: Heating circuit WA1
-          - entity: sensor.we2_operating_temperature  # C2_T14
-            display_name: Heat generator WE2 / WA2
-```
-
-For real kW flow widths add template sensors (e.g. solar power ≈
-irradiation × collector area × efficiency) and reference those instead.
 
 ## Tests
 
