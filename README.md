@@ -7,9 +7,10 @@ It reads the current values over the DL-Bus via the serial USB interface.
 ## Features
 
 - UI config flow: serial port, baud rate and polling interval
-- **Freely configurable channel names**: every detected channel
-  (`C1_S1..C1_S16`, `C1_A1..C1_A16`, `C2_…` for a second controller in 2DL mode)
-  gets a custom name and one of three value types in the UI:
+- **Freely configurable channel names**: all channels are listed in schematic
+  order (`C1_S1..C1_S16`, `C1_A1..C1_A16`, then `C2_…` for a second controller in
+  2DL mode; S = sensors, A = actors). Each channel gets a custom name and a type.
+  - **Disabled** (default — no entity is created)
   - **Temperature** (°C sensor)
   - **Power** (W sensor)
   - **Switch** (read-only binary sensor mirroring a digital channel/output —
@@ -37,8 +38,9 @@ It reads the current values over the DL-Bus via the serial USB interface.
 2. Enter the serial port of the D-LOGG USB adapter
    (Linux: e.g. `/dev/ttyUSB0`, Windows: e.g. `COM4`), the baud rate
    (default 115200) and the polling interval in seconds.
-3. The integration detects the available channels. Assign each channel a
-   **name** and a **type** (Temperature / Power / Switch).
+3. The integration lists all channels in schematic order. Assign each channel
+   a **name** and a **type** (Disabled / Temperature / Power / Switch); only
+   enabled channels become entities.
 4. The channels appear as sensors/switches under a "D-LOGG" device.
 
 ## Two controllers (2DL mode)
